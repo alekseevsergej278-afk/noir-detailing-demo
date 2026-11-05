@@ -202,11 +202,22 @@ const obs=new IntersectionObserver(items=>items.forEach(x=>{if(x.isIntersecting)
     if (attempt && typeof attempt.catch === 'function') attempt.catch(() => {});
   };
   film.addEventListener('loadeddata', startFilm, { once: true });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') startFilm(); });
+  film.addEventListener('canplay', startFilm, { once: true });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') startFilm();
+    else film.pause();
+  });
   window.addEventListener('pageshow', startFilm);
   ['pointerdown', 'touchstart', 'keydown'].forEach(type =>
     document.addEventListener(type, startFilm, { once: true, passive: true })
   );
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) startFilm();
+      else film.pause();
+    }, { threshold: 0.01 });
+    observer.observe(film);
+  }
   startFilm();
 })();
 </script>
