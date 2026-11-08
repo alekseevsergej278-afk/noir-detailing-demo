@@ -92,7 +92,7 @@ const observer=new IntersectionObserver(entries=>{
 const serviceRows=[...document.querySelectorAll('.service-row')];
 const servicePlayed=new Set(),serviceAnimations=new Map();
 const serviceObserver=new IntersectionObserver(entries=>{
-  const incoming=entries.filter(entry=>entry.isIntersecting&&!servicePlayed.has(entry.target))
+  const incoming=entries.filter(entry=>entry.isIntersecting&&entry.intersectionRatio>=.45&&!servicePlayed.has(entry.target))
     .sort((a,b)=>serviceRows.indexOf(a.target)-serviceRows.indexOf(b.target));
   incoming.forEach((entry,index)=>{
     const row=entry.target,box=row.getBoundingClientRect();
@@ -102,14 +102,14 @@ const serviceObserver=new IntersectionObserver(entries=>{
     row.dataset.serviceRevealCount=String(Number(row.dataset.serviceRevealCount||0)+1);
     const reduced=isReduced();
     const animation=play(row,[
-      {opacity:0,transform:reduced?'none':'translateY(14px)'},
+      {opacity:0,transform:reduced?'none':'translateY(20px)'},
       {opacity:1,transform:'none'}
-    ],{duration:650,delay:index*140,easing:ease,fill:'backwards'});
+    ],{duration:1000,delay:index*250,easing:'cubic-bezier(.25,.46,.45,.94)',fill:'backwards'});
     serviceAnimations.set(row,animation);
     const finished=()=>{if(serviceAnimations.get(row)===animation)serviceAnimations.delete(row);};
     animation.finished.then(finished,finished);
   });
-},{threshold:.12,rootMargin:'0px 0px -4% 0px'});
+},{threshold:[0,.45],rootMargin:'0px 0px -20% 0px'});
 let servicesVisited=false;
 const serviceSectionObserver=new IntersectionObserver(entries=>{
   entries.forEach(entry=>{
@@ -161,7 +161,7 @@ async function init(){
     headings.set(heading,record);splitLines(heading,record);resizeObserver.observe(heading);
   });
   groups.forEach(group=>observer.observe(group));
-  serviceRows.forEach(row=>serviceObserver.observe(row));
+  serviceRows.forEach(row=>{row.dataset.serviceRevealed='false';serviceObserver.observe(row);});
   serviceSectionObserver.observe(document.getElementById('services'));
   preference.addEventListener('change',onPreferenceChange);
 }

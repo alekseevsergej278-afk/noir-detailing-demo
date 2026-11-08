@@ -34,6 +34,7 @@
 .ui-measure-word{display:inline-block;white-space:nowrap}
 .ui-text-line{display:block;overflow:clip;padding-bottom:.16em;margin-bottom:-.16em}
 .ui-text-line-inner{display:block;white-space:nowrap}
+.service-row[data-service-revealed="false"]{opacity:0}
 /* Keep story text on its existing scroll progress; never create a second clock. */
 html[data-interface-motion="full"] .story-word-rise{transform:translateY(calc(clamp(0,1 - var(--copy-enter,1)*1.3 + var(--line,0)*.08,1)*112%))}
 html[data-interface-motion="full"] .story-choreography .story-copy>p,html[data-interface-motion="full"] .story-choreography .story-copy>a{opacity:clamp(0,(var(--copy-enter,1) - .16)*1.6,1);transform:translateY(calc((1 - var(--copy-enter,1))*12px))}
