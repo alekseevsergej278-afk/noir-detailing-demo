@@ -17,7 +17,9 @@ const chapterNodes = [...document.querySelectorAll('[data-chapter]')];
 const sourceURL = new URL('../models/bmw-m5-f90-source.glb', import.meta.url).href;
 let renderer, scene, camera, rig, original, reflection, reflectionPass, environment;
 let modelReady = false, frame = 0, active = true, disposed = false;
-const motionAllowed=()=>!reduceMotion.matches||(debug&&query.get('motion')==='full');
+// Camera movement is the service demonstration itself, controlled by scroll.
+// System reduced motion limits decorative autoplay, not this core interaction.
+const motionAllowed=()=>query.get('motion')!=='reduced';
 let motionEnabled=motionAllowed();
 let w = innerWidth, h = innerHeight, dprCap = 1.5, previousTime = 0, slowFrames = 0;
 let anchors = [], chapterBounds = [], currentChapter = 'hero', frameNumber = 0, lastRender = 0;
@@ -75,7 +77,7 @@ function cacheTimeline(){
 }
 function timelineAt(y){
   if(!motionEnabled){
-    // Reduced motion keeps a stable exterior composition. Treatment layers still
+    // An explicitly selected reduced experience keeps a stable exterior composition. Treatment layers still
     // explain each service; no interior flight or 360-degree rotation is needed.
     const effects=sampleTimeline(timeline,y);
     return {...effects,...Object.fromEntries(['x','y','z','tx','ty','tz','fov','yaw','offset'].map(p=>[p,BASE_POSE[p]]))};
@@ -272,7 +274,7 @@ function render(timestamp){
   storyPosition=motionEnabled?THREE.MathUtils.damp(storyPosition,scrollY,12,dt):scrollY;
   const moving=Math.abs(storyPosition-scrollY)>.08;
   if(!moving)storyPosition=scrollY;
-  const entrance=motionEnabled&&scrollY<h*.25?Math.min(1,(performance.now()-entranceTime)/1100):1;
+  const entrance=motionEnabled&&!reduceMotion.matches&&scrollY<h*.25?Math.min(1,(performance.now()-entranceTime)/1100):1;
   updatePresentation(storyPosition,entrance);
   editorial.update();
   if(!renderer||!modelReady||!active){if(moving)invalidate();return;}
@@ -332,7 +334,7 @@ async function init(){
     camera.position.set(initial.x,initial.y,initial.z);camera.lookAt(initial.tx,initial.ty,initial.tz);rig.rotation.y=initial.yaw;
     camera.fov=initial.fov;camera.setViewOffset(w,h,-w*initial.offset,0,w,h);camera.updateProjectionMatrix();
     updateEffects(initial,0);reflectionOpacity.value=.32*smooth(initial.reflect);reflection.visible=reflectionOpacity.value>.001;
-    renderer.toneMappingExposure=motionEnabled&&currentChapter==='hero'?.12:1.2;
+    renderer.toneMappingExposure=motionEnabled&&!reduceMotion.matches&&currentChapter==='hero'?.12:1.2;
     renderer.render(scene,camera);
     modelReady=true;entranceTime=performance.now();metrics.loadReadyMs=Math.round(entranceTime-metrics.loadStart);metrics.originalMeshCount=originalMeshes.length;metrics.originalMaterialCount=originalMaterials.length;
     document.body.dataset.scene='ready';document.body.classList.add('story-choreography');verifyOriginals();cacheTimeline();invalidate();
