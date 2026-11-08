@@ -100,7 +100,7 @@ const serviceObserver=new IntersectionObserver(entries=>{
     play(row,[
       {opacity:0,transform:reduced?'none':'translateY(14px)'},
       {opacity:1,transform:'none'}
-    ],{duration:reduced?180:430,delay:reduced?0:index*70,easing:ease,fill:'backwards'});
+    ],{duration:reduced?180:650,delay:reduced?0:index*140,easing:ease,fill:'backwards'});
   });
 },{threshold:.12,rootMargin:'0px 0px -4% 0px'});
 const resizeObserver=new ResizeObserver(()=>{
