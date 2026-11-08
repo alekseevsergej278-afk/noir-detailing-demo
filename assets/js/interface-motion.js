@@ -87,6 +87,22 @@ function reveal(group){
 const observer=new IntersectionObserver(entries=>{
   entries.forEach(entry=>{if(entry.isIntersecting){reveal(entry.target);observer.unobserve(entry.target);}});
 },{threshold:.12,rootMargin:'0px 0px -5% 0px'});
+// Stagger only rows entering together. Later rows respond immediately as they
+// enter the viewport, rather than waiting behind an offscreen animation queue.
+const serviceRows=[...document.querySelectorAll('.service-row')];
+const serviceObserver=new IntersectionObserver(entries=>{
+  const incoming=entries.filter(entry=>entry.isIntersecting)
+    .sort((a,b)=>serviceRows.indexOf(a.target)-serviceRows.indexOf(b.target));
+  incoming.forEach((entry,index)=>{
+    const row=entry.target;serviceObserver.unobserve(row);
+    row.dataset.serviceRevealed='true';
+    const reduced=isReduced();
+    play(row,[
+      {opacity:0,transform:reduced?'none':'translateY(14px)'},
+      {opacity:1,transform:'none'}
+    ],{duration:reduced?180:430,delay:reduced?0:index*70,easing:ease,fill:'backwards'});
+  });
+},{threshold:.12,rootMargin:'0px 0px -4% 0px'});
 const resizeObserver=new ResizeObserver(()=>{
   if(resizeFrame||disposed)return;
   resizeFrame=requestAnimationFrame(()=>{
@@ -126,10 +142,11 @@ async function init(){
     headings.set(heading,record);splitLines(heading,record);resizeObserver.observe(heading);
   });
   groups.forEach(group=>observer.observe(group));
+  serviceRows.forEach(row=>serviceObserver.observe(row));
   preference.addEventListener('change',onPreferenceChange);
 }
 addEventListener('pagehide',event=>{
-  if(event.persisted)return;disposed=true;observer.disconnect();resizeObserver.disconnect();heroObserver.disconnect();
+  if(event.persisted)return;disposed=true;observer.disconnect();serviceObserver.disconnect();resizeObserver.disconnect();heroObserver.disconnect();
   cancelAnimationFrame(resizeFrame);animations.forEach(animation=>animation.cancel());
   preference.removeEventListener('change',onPreferenceChange);
   removeEventListener('scroll',onScroll);
