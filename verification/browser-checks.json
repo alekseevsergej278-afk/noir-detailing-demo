@@ -1,0 +1,197 @@
+{
+  "checkedAt": "2026-11-08T09:55:58.042Z",
+  "results": [
+    {
+      "name": "result",
+      "active": "true",
+      "canvasCount": 1,
+      "chapter": "result",
+      "cpuMs": 138.29999999981374,
+      "drawCalls": 895,
+      "frames": 1,
+      "geometryUnchanged": true,
+      "materials": 96,
+      "materialsUnchanged": true,
+      "meanMs": null,
+      "modelLoads": 1,
+      "originalMeshes": 361,
+      "overflow": false,
+      "p95Ms": null,
+      "pose": {
+        "ceramic": 0.34601186013036583,
+        "dirty": 0,
+        "film": 0,
+        "fov": 37.50922909152622,
+        "lift": 1,
+        "light": 1.4865029650325914,
+        "offset": 0.17190177901955486,
+        "polish": 0.8650296503259145,
+        "reflect": 0.8650296503259145,
+        "tx": 0,
+        "ty": 0.69723962238593,
+        "tz": 0.04049110490222565,
+        "water": 0,
+        "x": 4.8509145593088245,
+        "y": 2.401532615358506,
+        "yaw": -0.17300593006518292,
+        "z": 6.936189762085853
+      },
+      "resolution": [
+        1366,
+        768
+      ],
+      "scrollY": 5809
+    },
+    {
+      "name": "result-orbit",
+      "active": "true",
+      "canvasCount": 1,
+      "chapter": "result",
+      "cpuMs": 2.3999999999068677,
+      "drawCalls": 448,
+      "frames": 868,
+      "geometryUnchanged": true,
+      "materials": 96,
+      "materialsUnchanged": true,
+      "meanMs": 16.66624999999999,
+      "modelLoads": 1,
+      "originalMeshes": 361,
+      "overflow": false,
+      "p95Ms": 16.799999999995634,
+      "pose": {
+        "ceramic": 0.4,
+        "dirty": 0,
+        "film": 0,
+        "fov": 34.000000000000014,
+        "lift": 1,
+        "light": 1.5373705846118224,
+        "offset": 0.18,
+        "polish": 0.9999999999999996,
+        "reflect": 0.9999999999999996,
+        "tx": 0,
+        "ty": 0.6500000000000001,
+        "tz": 1.2151362661284695e-45,
+        "water": 0,
+        "x": 5.599999999999998,
+        "y": 2.4005176615527093,
+        "yaw": 4.4961261630743135,
+        "z": 7.799999999999998
+      },
+      "resolution": [
+        1366,
+        768
+      ],
+      "scrollY": 6402
+    },
+    {
+      "name": "interior",
+      "active": "true",
+      "canvasCount": 1,
+      "chapter": "interior",
+      "cpuMs": 1.3999999999068675,
+      "drawCalls": 250,
+      "frames": 1467,
+      "geometryUnchanged": true,
+      "materials": 96,
+      "materialsUnchanged": true,
+      "meanMs": 16.665833333333346,
+      "modelLoads": 1,
+      "originalMeshes": 361,
+      "overflow": false,
+      "p95Ms": 16.799999999995634,
+      "pose": {
+        "ceramic": 0.0000019153872587723247,
+        "dirty": 0,
+        "film": 0,
+        "fov": 64.07305585323022,
+        "lift": 1,
+        "light": 1.500000180049129,
+        "offset": 0.12000028730808882,
+        "polish": 0.000004788468146930806,
+        "reflect": 0.000004788468146930806,
+        "tx": 0.13487511476377942,
+        "ty": 0.9807304504984656,
+        "tz": 0.799995872390416,
+        "water": 0,
+        "x": -0.11448236789163972,
+        "y": 1.1296400225248673,
+        "yaw": 0.00002912913907530695,
+        "z": -0.6028866648055067
+      },
+      "resolution": [
+        1366,
+        768
+      ],
+      "scrollY": 5403
+    },
+    {
+      "name": "finale",
+      "active": "true",
+      "canvasCount": 1,
+      "chapter": "finale",
+      "cpuMs": 1.7999999998137357,
+      "drawCalls": 448,
+      "frames": 2090,
+      "geometryUnchanged": true,
+      "materials": 96,
+      "materialsUnchanged": true,
+      "meanMs": 16.666249999999977,
+      "modelLoads": 1,
+      "originalMeshes": 361,
+      "overflow": false,
+      "p95Ms": 16.80000000000291,
+      "pose": {
+        "ceramic": 0.4,
+        "dirty": 0,
+        "film": 0,
+        "fov": 34.000000000000014,
+        "lift": 1,
+        "light": 1.4783250216092063,
+        "offset": 0.17999999999999994,
+        "polish": 0.9999999999999996,
+        "reflect": 0.9999999999999996,
+        "tx": 3.115538667604854e-33,
+        "ty": 0.6500000000000001,
+        "tz": 1.8479450999703355e-32,
+        "water": 0,
+        "x": 5.42660017287365,
+        "y": 2.484975064827619,
+        "yaw": 6.100525289892221,
+        "z": 7.626600172873649
+      },
+      "resolution": [
+        1366,
+        768
+      ],
+      "scrollY": 11789
+    }
+  ],
+  "warmup": {
+    "firstVisibleFrameCpuMs": 4.199999999720603,
+    "geometries": 366,
+    "loadReadyMs": 1024,
+    "modelLoads": 1,
+    "textures": 62
+  },
+  "resources": {
+    "before": {
+      "geometries": 366,
+      "modelLoads": 1,
+      "textures": 62
+    },
+    "after": {
+      "geometries": 366,
+      "modelLoads": 1,
+      "textures": 62
+    },
+    "stable": true
+  },
+  "finalWebGLErrors": [],
+  "form": {
+    "requiredFieldsValidated": true,
+    "demoSubmissionResetFields": true,
+    "externalSubmission": false
+  },
+  "legacyPhotosRepaired": 2,
+  "offscreenRenderingStopped": true
+}

@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:3d": "esbuild assets/js/hero-3d-source.js --bundle --format=esm --minify --outfile=assets/js/hero-3d.js",
-    "optimize:model": "node tools/optimize-model.mjs"
+    "build:3d": "esbuild assets/js/cinematic-source.js --bundle --format=esm --minify --outfile=assets/js/hero-3d.js",
+    "verify:source": "node tools/verify-source.mjs"
   },
   "dependencies": { "three": "0.181.2" },
   "devDependencies": {

@@ -1,0 +1,10 @@
+{
+  "file": "assets/models/bmw-m5-f90-source.glb",
+  "sha256": "8d064b8dc6412bc324041d3f964c305994e683b6d427381958ce2807388cb776",
+  "bytes": 17537644,
+  "triangles": 259930,
+  "materials": 96,
+  "textures": 55,
+  "source": "https://sketchfab.com/3d-models/bmw-m5-f90-5478e978bd634337adc8e3dc413fbfa3",
+  "changesToSourceFile": false
+}

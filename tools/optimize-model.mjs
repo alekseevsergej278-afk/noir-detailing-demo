@@ -4,11 +4,15 @@ import { dedup, prune, flatten, join, weld, dequantize, compactPrimitive, textur
 import { MeshoptEncoder, MeshoptDecoder, MeshoptSimplifier } from 'meshoptimizer';
 import draco3d from 'draco3dgltf';
 import sharp from 'sharp';
-import { mkdir, stat, writeFile } from 'node:fs/promises';
+import { mkdir, stat, writeFile, readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 const [input, outputDirectory] = process.argv.slice(2);
 if (!input || !outputDirectory) throw new Error('Usage: node optimize.mjs input.glb output-directory');
+if (createHash('sha256').update(await readFile(input)).digest('hex') === '8d064b8dc6412bc324041d3f964c305994e683b6d427381958ce2807388cb776') {
+  throw new Error('The original BMW M5 F90 is protected. Geometry, materials and textures must remain unchanged.');
+}
 await Promise.all([MeshoptEncoder.ready, MeshoptDecoder.ready, MeshoptSimplifier.ready]);
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({
   'meshopt.decoder': MeshoptDecoder,
