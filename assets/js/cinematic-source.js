@@ -24,9 +24,7 @@ let entranceTime = 0, userOverride = false;
 let originalMeshes = [], originalMaterials = [], originalChecks = [];
 let dirtyLayers = [], glossLayers = [], ceramicLayers = [], filmLayers = [], waveLayers = [];
 let water, waterSeeds = [], waterMaterial, hood, paintColor = new THREE.Color('#154835');
-const finishes={graphite:{label:'Графит',color:'#4b535c'},silver:{label:'Серебро',color:'#a6aeb3'},emerald:{label:'Изумруд',color:null}};
-let selectedFinish='graphite',sourcePaintColor,paintMaterials=[],paintEffectMaterials=[];
-try{if(finishes[localStorage.getItem('noir-finish')])selectedFinish=localStorage.getItem('noir-finish');}catch{}
+const GRAPHITE_COLOR='#4b535c';
 const ownedGeometries = new Set(), ownedMaterials = new Set(), ownedTextures = new Set();
 const look = new THREE.Vector3(), cameraPosition = new THREE.Vector3();
 const BASE_POSE = Object.freeze({x:5.6,y:2.55,z:7.8,tx:0,ty:.65,tz:0,fov:34,yaw:-.2,offset:.18,dirty:0,polish:0,ceramic:0,film:0,lift:1,water:0,reflect:1,light:1});
@@ -87,17 +85,11 @@ function verifyOriginals(){
   metrics.sourceMaterialsUnchanged=originalChecks.every(({material,state})=>state===materialState(material));
   metrics.sourceGeometryUnchanged=originalMeshes.every(({node,geometry,index,position,normal,uv})=>node.geometry===geometry&&geometry.index===index&&geometry.attributes.position===position&&geometry.attributes.normal===normal&&geometry.attributes.uv===uv);
 }
-function setFinish(name){
-  selectedFinish=name;const color=finishes[name].color?new THREE.Color(finishes[name].color):sourcePaintColor;
-  if(color){paintColor.copy(color);paintMaterials.forEach(m=>m.color.copy(color));paintEffectMaterials.forEach((m,i)=>m.color.copy(color).multiplyScalar(i===0?.92:1));}
-  document.querySelectorAll('[data-finish]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.finish===name)));
-  metrics.finish=name;try{localStorage.setItem('noir-finish',name);}catch{}verifyOriginals();invalidate();
-}
 function presentationMaterials(){
   const replacements=new Map();let glassMeshes=0;
   for(const source of originalMaterials){
     if(source.name==='BUMWERK deep green metallic'){
-      const material=keepMaterial(source.clone());sourcePaintColor=source.color.clone();paintMaterials.push(material);replacements.set(source,material);
+      const material=keepMaterial(source.clone());material.color.set(GRAPHITE_COLOR);replacements.set(source,material);
     }else if(source.name==='BUMWERK black tinted glass'){
       // Restore a clear, lightly tinted window using a disposable runtime copy.
       // The opaque BUMWERK material and source GLB remain available unchanged.
@@ -106,9 +98,7 @@ function presentationMaterials(){
     }
   }
   for(const {node}of originalMeshes){const replace=m=>{const copy=replacements.get(m);if(copy&&m.name==='BUMWERK black tinted glass')glassMeshes++;return copy??m;};node.material=Array.isArray(node.material)?node.material.map(replace):replace(node.material);}
-  const controls=document.createElement('div');controls.className='studio-finishes';controls.setAttribute('role','group');controls.setAttribute('aria-label','Цвет автомобиля');
-  for(const [key,finish]of Object.entries(finishes)){const button=document.createElement('button');button.type='button';button.dataset.finish=key;button.textContent=finish.label;button.style.setProperty('--finish-color',finish.color??'#226148');button.addEventListener('click',()=>setFinish(key));controls.appendChild(button);}
-  document.querySelector('.studio-actions').prepend(controls);metrics.clearWindowMeshes=glassMeshes;metrics.presentationMaterialsAreCopies=true;setFinish(selectedFinish);
+  metrics.clearWindowMeshes=glassMeshes;metrics.presentationMaterialsAreCopies=true;metrics.finish='graphite';verifyOriginals();
 }
 function environmentStudio(){
   const envScene=new THREE.Scene();envScene.background=new THREE.Color('#030405');
@@ -165,7 +155,6 @@ function createLayers(){
   };
   dirty.customProgramCacheKey=()=> 'noir-dirt-surface-1';
   const gloss=keepMaterial(new THREE.MeshPhysicalMaterial({color:paintColor,metalness:.65,roughness:.12,clearcoat:1,clearcoatRoughness:.045,transparent:true,opacity:.22,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3}));
-  paintEffectMaterials=[dirty,gloss];
   const ceramic=keepMaterial(new THREE.MeshPhysicalMaterial({color:'#dce8eb',metalness:.2,roughness:.07,clearcoat:1,clearcoatRoughness:.025,transparent:true,opacity:.075,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-4}));
   const wave=keepMaterial(new THREE.ShaderMaterial({transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-5,polygonOffsetUnits:-5,uniforms:{uWave:uniforms.wave},vertexShader:'varying vec3 vP;varying vec3 vN;void main(){vP=position;vN=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position+normal*.002,1.0);}',fragmentShader:'varying vec3 vP;varying vec3 vN;uniform float uWave;void main(){float band=exp(-pow((vP.z-mix(2.8,-3.0,uWave))*10.0,2.0));float edge=.25+pow(1.0-abs(vN.z),2.0);gl_FragColor=vec4(.92,.9,.8,band*edge*.3);}'}));
   for(const mesh of body){attachSurface(mesh,dirty,dirtyLayers);attachSurface(mesh,gloss,glossLayers);attachSurface(mesh,ceramic,ceramicLayers);attachSurface(mesh,wave,waveLayers);}
