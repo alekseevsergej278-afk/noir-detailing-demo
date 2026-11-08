@@ -128,7 +128,7 @@ section{padding:108px 0}
 .footer-meta{gap:40px;font-size:10px}
 .grain{display:none}
 .motion-progress{display:none!important}
-.reveal,.motion-reveal{opacity:1!important;transform:none!important;filter:none!important;transition:none!important;will-change:auto!important}
+.reveal,.motion-reveal{opacity:1;transform:none;filter:none;transition:none;will-change:auto}
 .motion-card,.motion-card.in-view,.service.motion-card,.portfolio-item.motion-card{transform:none!important;box-shadow:none!important}
 .motion-image img{translate:0 0!important;transform:none!important}
 .hero-img:before,.noir-floor-glow,.noir-scanline{display:none!important;animation:none!important}
@@ -157,12 +157,11 @@ section{padding:108px 0}
  .marquee-track>span:nth-of-type(n+5),.marquee-track>i:nth-of-type(n+4){display:none}
 }
 
-</style><link rel="stylesheet" href="assets/css/cinematic.css"></head><body><div id="noir-scene" aria-hidden="true"></div>
-<div class="studio-ui" id="studio-ui"><span class="studio-caption" id="studio-caption">Детейлинг и защита автомобиля</span><div class="studio-actions"><button id="studio-motion" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5v14M15 5v14"/></svg><span>Пауза</span></button><button id="studio-reset" type="button">В начало</button></div></div>
+</style><link rel="stylesheet" href="assets/css/cinematic.css?v=premium-6"></head><body><div id="noir-scene" aria-hidden="true"></div>
 <div class="studio-loading" id="studio-loading" role="status" aria-live="polite"><span id="scene-status">Готовим автомобиль…</span><button id="scene-retry" type="button" hidden>Попробовать снова</button></div><div class="grain"></div><header class="header wrap"><a href="#" class="brand">NOIR<span>.</span></a><nav class="menu"><a href="#services">Услуги</a><a href="#philosophy">Как работаем</a><a href="#works">Работы</a><a href="#contact">Контакты</a></nav><span class="head-phone">ОКЛЕЙКА · ПОЛИРОВКА · УХОД</span><a class="head-cta" href="#contact">Записаться <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 19 5M5 5h14v14"/></svg></a></header><main><section class="story-chapter story-hero" id="experience" data-chapter="hero">
   <div class="story-copy"><h1>Совершенство<br><em>в каждой детали.</em></h1><p>Профессиональный детейлинг, защита кузова и бережный уход за автомобилем. От первого осмотра до безупречного финиша.</p><a class="story-cta" href="#services">Наши услуги <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 19 5M5 5h14v14"/></svg></a></div>
   <a class="story-scroll" href="#condition"><span class="scroll-line"></span>Листайте, чтобы увидеть преображение</a>
-</section><div class="marquee"><div class="marquee-track"><span>ЗАЩИТНАЯ ПЛЁНКА</span><i aria-hidden="true">—</i><span>ПОЛИРОВКА КУЗОВА</span><i aria-hidden="true">—</i><span>КЕРАМИЧЕСКОЕ ПОКРЫТИЕ</span><i aria-hidden="true">—</i><span>ДЕТЕЙЛИНГ САЛОНА</span><i aria-hidden="true">—</i><span>ЗАЩИТНАЯ ПЛЁНКА</span><i aria-hidden="true">—</i><span>ПОЛИРОВКА КУЗОВА</span><i aria-hidden="true">—</i><span>КЕРАМИЧЕСКОЕ ПОКРЫТИЕ</span><i aria-hidden="true">—</i><span>ДЕТЕЙЛИНГ САЛОНА</span></div></div>
+</section>
 
 <section class="story-chapter" id="condition" data-chapter="condition"><div class="story-copy"><h2>Свет показывает<br><em>всё.</em></h2><p>Микрориски, следы мойки и потеря глубины цвета заметнее всего под направленным светом. С этого начинается осмотр кузова.</p><p class="story-note">При прокрутке — поверхность до обработки.</p></div></section>
 <section class="story-chapter" id="polishing" data-chapter="polish"><div class="story-copy"><h2>Вернуть цвету<br><em>глубину.</em></h2><p>Полировка убирает мелкие дефекты лакокрасочного покрытия. Отражение становится ровнее, а поверхность вновь обретает блеск.</p><a class="story-text-link" href="#services">Полировка кузова — от 4 000 ₽</a></div></section>
@@ -180,90 +179,19 @@ section{padding:108px 0}
 const obs=new IntersectionObserver(items=>items.forEach(x=>{if(x.isIntersecting){x.target.classList.add('visible');obs.unobserve(x.target)}}),{threshold:.12});document.querySelectorAll('.reveal').forEach(x=>obs.observe(x));document.getElementById('leadForm').addEventListener('submit',e=>{e.preventDefault();alert('Это демонстрационная форма — заявка пока не отправлена.');e.target.reset()});
 </script><script>
 
-/* Editorial interaction layer: section choreography, scroll progress and gentle depth. */
+// Navigation stays native; the 3D module owns the scroll choreography.
 (() => {
-  const root=document.documentElement;
-  const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const fine=window.matchMedia('(hover:hover) and (pointer:fine)').matches;
-  const progress=document.createElement('div');
-  progress.className='motion-progress';
-  progress.innerHTML='<span></span>';
-  document.body.appendChild(progress);
-  const bar=progress.firstElementChild;
-
-
-  const targets=document.querySelectorAll('.section-title,.service,.values-photo,.values-copy,.portfolio-item,.booking-copy,.form,.quote');
-  targets.forEach((el,i)=>{
-    el.classList.add('motion-reveal');
-    el.style.setProperty('--motion-delay',(el.matches('.service,.portfolio-item')?(i%4)*95:Math.min(i,3)*65)+'ms');
-  });
-  const images=document.querySelectorAll('.values-photo img,.portfolio-item img');
-  images.forEach(img=>img.closest('a,div,figure')?.classList.add('motion-image'));
-  document.querySelectorAll('.service,.portfolio-item').forEach(el=>el.classList.add('motion-card'));
-
-  if(reduce || !('IntersectionObserver' in window)){
-    targets.forEach(el=>el.classList.add('in-view'));
-  } else {
-    const io=new IntersectionObserver((entries,observer)=>{
-      entries.forEach(entry=>{
-        if(entry.isIntersecting){entry.target.classList.add('in-view');observer.unobserve(entry.target);}
-      });
-    },{threshold:.12,rootMargin:'0px 0px -7% 0px'});
-    targets.forEach(el=>io.observe(el));
-  }
-
-  const sections=[...document.querySelectorAll('main section[id]')];
-  const navLinks=[...document.querySelectorAll('.menu a')];
-  if('IntersectionObserver' in window){
-    const navObserver=new IntersectionObserver(entries=>{
-      entries.forEach(entry=>{
-        if(entry.isIntersecting){
-          navLinks.forEach(a=>a.classList.toggle('is-active',a.getAttribute('href')==='#'+entry.target.id));
-        }
-      });
-    },{rootMargin:'-35% 0px -55% 0px',threshold:0});
-    sections.forEach(s=>navObserver.observe(s));
-  }
-  document.querySelectorAll('a[href^="#"]').forEach(a=>{
-    a.addEventListener('click',e=>{
-      const hash=a.getAttribute('href');
-      if(!hash || hash==='#') return;
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)');
+  document.querySelectorAll('a[href^="#"]').forEach(link=>{
+    link.addEventListener('click',event=>{
+      const hash=link.getAttribute('href');
+      if(hash==='#'){event.preventDefault();window.scrollTo({top:0,behavior:reduce.matches?'instant':'smooth'});return;}
       const target=document.getElementById(hash.slice(1));
-      if(target){e.preventDefault();target.scrollIntoView({behavior:reduce?'auto':'smooth',block:'start'});}
+      if(target){event.preventDefault();target.scrollIntoView({behavior:reduce.matches?'instant':'smooth',block:'start'});}
     });
   });
-
-  let raf=false;
-  const update=()=>{
-    const max=Math.max(1,root.scrollHeight-innerHeight);
-    bar.style.transform='scaleX('+Math.min(1,scrollY/max)+')';
-    document.querySelectorAll('.values-photo img,.portfolio-item img').forEach(img=>{
-      const r=img.getBoundingClientRect();
-      const offset=((r.top+r.height/2-innerHeight/2)/innerHeight)*-7;
-      img.style.setProperty('--parallax-y',Math.max(-10,Math.min(10,offset))+'px');
-    });
-    raf=false;
-  };
-  if(!reduce){
-    addEventListener('scroll',()=>{if(!raf){raf=true;requestAnimationFrame(update)}},{passive:true});
-    update();
-  }else bar.style.transform='scaleX(0)';
-
-  if(fine && !reduce){
-    document.querySelectorAll('.service,.portfolio-item').forEach(card=>{
-      card.addEventListener('pointermove',e=>{
-        const r=card.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;
-        card.style.setProperty('--tilt-x',(-y*3.2).toFixed(2)+'deg');
-        card.style.setProperty('--tilt-y',(x*3.2).toFixed(2)+'deg');
-      });
-      card.addEventListener('pointerleave',()=>{
-        card.style.setProperty('--tilt-x','0deg');card.style.setProperty('--tilt-y','0deg');
-      });
-    });
-  }
 })();
-
 </script>
 
 
-<script type="module" src="assets/js/hero-3d.js"></script></body></html>
+<script type="module" src="assets/js/hero-3d.js?v=premium-6"></script></body></html>

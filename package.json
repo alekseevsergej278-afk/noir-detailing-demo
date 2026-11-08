@@ -4,9 +4,12 @@
   "type": "module",
   "scripts": {
     "build:3d": "esbuild assets/js/cinematic-source.js --bundle --format=esm --minify --outfile=assets/js/hero-3d.js",
-    "verify:source": "node tools/verify-source.mjs"
+    "verify:source": "node tools/verify-source.mjs",
+    "verify:motion": "node tools/verify-motion.mjs"
   },
-  "dependencies": { "three": "0.181.2" },
+  "dependencies": {
+    "three": "0.181.2"
+  },
   "devDependencies": {
     "esbuild": "0.25.12",
     "@gltf-transform/core": "4.5.1",

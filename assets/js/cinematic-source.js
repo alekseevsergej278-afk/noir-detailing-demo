@@ -2,25 +2,28 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
+import {prepareTimeline, sampleTimeline} from './motion-timeline.js';
+import {createEditorialMotion} from './editorial-motion.js';
 
 // The source GLB, its geometry, UVs, normals, textures and materials are read-only.
 // Treatment effects reference existing geometry with independent materials.
 const mount = document.getElementById('noir-scene');
 const status = document.getElementById('scene-status');
-const ui = document.getElementById('studio-ui');
-const motionButton = document.getElementById('studio-motion');
-const caption = document.getElementById('studio-caption');
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const editorial = createEditorialMotion(reduceMotion,()=>invalidate());
 const query = new URLSearchParams(location.search);
 const debug = query.has('perf');
 const chapterNodes = [...document.querySelectorAll('[data-chapter]')];
-const labels = {hero:'Детейлинг и защита автомобиля',condition:'Осмотр поверхности',polish:'Полировка кузова',ceramic:'Керамическое покрытие',ppf:'Защитная плёнка PPF',interior:'Детейлинг интерьера',result:'Результат',finale:'Запись в студию'};
 const sourceURL = new URL('../models/bmw-m5-f90-source.glb', import.meta.url).href;
 let renderer, scene, camera, rig, original, reflection, reflectionPass, environment;
-let modelReady = false, frame = 0, active = true, disposed = false, motionEnabled = !reduceMotion.matches;
+let modelReady = false, frame = 0, active = true, disposed = false;
+const motionAllowed=()=>!reduceMotion.matches||(debug&&query.get('motion')==='full');
+let motionEnabled=motionAllowed();
 let w = innerWidth, h = innerHeight, dprCap = 1.5, previousTime = 0, slowFrames = 0;
 let anchors = [], chapterBounds = [], currentChapter = 'hero', frameNumber = 0, lastRender = 0;
-let entranceTime = 0, userOverride = false;
+let sceneRanges=[];
+let entranceTime = 0, storyPosition = scrollY, timeline, nextFrameAt=0;
+let sceneOpacity = 1, reflectionOpacity;
 let originalMeshes = [], originalMaterials = [], originalChecks = [];
 let dirtyLayers = [], glossLayers = [], ceramicLayers = [], filmLayers = [], waveLayers = [];
 let water, waterSeeds = [], waterMaterial, hood, paintColor = new THREE.Color('#154835');
@@ -43,11 +46,11 @@ function pose(values){return {...BASE_POSE,...values};}
 function addKey(at,state){anchors.push({at,state:pose(state)});}
 function cacheTimeline(){
   w=innerWidth;h=innerHeight;
-  chapterBounds=chapterNodes.map(node=>({node,name:node.dataset.chapter,top:node.getBoundingClientRect().top+scrollY,height:node.offsetHeight}));
+  chapterBounds=chapterNodes.map(node=>({node,copy:node.querySelector('.story-copy'),name:node.dataset.chapter,top:node.getBoundingClientRect().top+scrollY,height:node.offsetHeight}));
   const b=Object.fromEntries(chapterBounds.map(r=>[r.name,r]));
+  sceneRanges=[{start:0,end:b.result.top+b.result.height},{start:b.finale.top,end:b.finale.top+b.finale.height}];
   anchors=[];
   addKey(0,{});
-  addKey(h*.5,{x:5.35,y:2.45,z:7.4});
   addKey(b.condition.top-h*.55,{x:4.6,y:2.4,z:6.4});
   addKey(b.condition.top+h*.25,{x:.72,y:1.65,z:2.9,tx:0,ty:.87,tz:1.45,fov:32,yaw:0,dirty:1,reflect:0,light:1.2});
   addKey(b.polish.top-h*.55,{x:.64,y:1.62,z:2.7,tx:.03,ty:.86,tz:1.43,fov:31,yaw:0,dirty:1,reflect:0,light:1.2});
@@ -60,20 +63,83 @@ function cacheTimeline(){
   addKey(b.interior.top-h*.12,{x:.05,y:1.45,z:1.4,tx:0,ty:1,tz:.3,fov:60,yaw:0,offset:.12,reflect:0,light:1.4});
   addKey(b.interior.top+h*.15,{x:.03,y:1.12,z:-.68,tx:0,ty:1.0,tz:.8,fov:66,yaw:0,offset:.12,reflect:0,light:1.5});
   addKey(b.interior.top+h*.72,{x:-.12,y:1.13,z:-.6,tx:.14,ty:.98,tz:.8,fov:64,yaw:0,offset:.12,reflect:0,light:1.5});
-  addKey(b.interior.top+h*.96,{x:.05,y:1.45,z:1.4,tx:0,ty:1,tz:.3,fov:60,yaw:0,offset:.12,reflect:0,light:1.4});
+  addKey(b.interior.top+h*.88,{x:.05,y:1.45,z:1.4,tx:0,ty:1,tz:.3,fov:60,yaw:0,offset:.12,reflect:0,light:1.4});
   addKey(b.result.top-h*.05,{x:5.6,y:2.55,z:7.8,polish:1,ceramic:.4,light:1.5});
-  addKey(b.result.top+h,{x:5.6,y:2.35,z:7.8,yaw:Math.PI*2-.2,polish:1,ceramic:.4,light:1.55});
+  addKey(b.result.top+h*1.3,{x:5.6,y:2.35,z:7.8,yaw:Math.PI*2-.2,polish:1,ceramic:.4,light:1.55});
   addKey(b.finale.top-h*.55,{x:5.6,y:2.55,z:7.8,yaw:Math.PI*2-.2,polish:1,ceramic:.4,light:1.5});
   addKey(b.finale.top+h*.4,{x:5.2,y:2.4,z:7.4,yaw:Math.PI*2-.16,polish:1,ceramic:.4,light:1.45});
   anchors.sort((a,b)=>a.at-b.at);
+  timeline=prepareTimeline(anchors,props);
+  measureHeadingLines();
   resizeRenderer();invalidate();
 }
 function timelineAt(y){
-  let left=anchors[0],right=anchors.at(-1);
-  for(let i=1;i<anchors.length;i++){if(y<anchors[i].at){left=anchors[i-1];right=anchors[i];break;}left=anchors[i];}
-  const t=right.at>left.at?smooth((y-left.at)/(right.at-left.at)):1;
-  const result={};for(const p of props)result[p]=THREE.MathUtils.lerp(left.state[p],right.state[p],t);
-  return result;
+  if(!motionEnabled){
+    // Reduced motion keeps a stable exterior composition. Treatment layers still
+    // explain each service; no interior flight or 360-degree rotation is needed.
+    const effects=sampleTimeline(timeline,y);
+    return {...effects,...Object.fromEntries(['x','y','z','tx','ty','tz','fov','yaw','offset'].map(p=>[p,BASE_POSE[p]]))};
+  }
+  return sampleTimeline(timeline,y);
+}
+
+function prepareHeadings(){
+  for(const node of chapterNodes){
+    const disclaimer=node.querySelector('.scene-disclaimer');
+    if(disclaimer)node.querySelector('.story-copy').append(disclaimer);
+    const heading=node.querySelector('h1,h2');
+    heading.setAttribute('aria-label',heading.innerText.replace(/\s+/g,' ').trim());
+    const walker=document.createTreeWalker(heading,NodeFilter.SHOW_TEXT),nodes=[];
+    while(walker.nextNode())nodes.push(walker.currentNode);
+    for(const text of nodes){
+      const fragment=document.createDocumentFragment();
+      text.textContent.split(/(\s+)/).forEach(word=>{
+        if(!word.trim()){fragment.append(document.createTextNode(word));return;}
+        const clip=document.createElement('span'),rise=document.createElement('span');
+        clip.className='story-word';clip.setAttribute('aria-hidden','true');
+        rise.className='story-word-rise';rise.textContent=word;clip.append(rise);fragment.append(clip);
+      });
+      text.replaceWith(fragment);
+    }
+  }
+}
+function measureHeadingLines(){
+  for(const node of chapterNodes){
+    let last=-Infinity,line=-1;
+    for(const word of node.querySelectorAll('.story-word')){
+      const top=word.offsetTop;if(Math.abs(top-last)>8){line++;last=top;}
+      word.firstElementChild.style.setProperty('--line',line);
+    }
+  }
+}
+function updatePresentation(position,entrance=1){
+  let opacity=0,selected=null,strongest=0;
+  for(const b of chapterBounds){
+    const start=b.top-h*(b.name==='result'?.04:.6),end=b.top+b.height;
+    let enter=b.name==='hero'?1:smooth((position-start)/(h*.36));
+    const leave=smooth((position-(end-h*.85))/(h*.34));
+    if(b.name==='hero')enter*=entrance;
+    const amount=enter*(1-leave);
+    b.copy.style.setProperty('--copy-alpha',amount.toFixed(4));
+    b.copy.style.setProperty('--copy-enter',enter.toFixed(4));
+    b.copy.style.setProperty('--copy-leave',leave.toFixed(4));
+    if(amount>strongest){strongest=amount;selected=b;}
+  }
+  for(const range of sceneRanges){
+    const enter=range.start===0?1:smooth((position-(range.start-h))/(h*.45));
+    const leave=1-smooth((position-(range.end-h*.7))/(h*.65));
+    opacity=Math.max(opacity,enter*leave);
+  }
+  // Never superimpose two headings, even in the nearly transparent crossover.
+  for(const b of chapterBounds){
+    const visible=b===selected&&strongest>.002;
+    b.copy.style.visibility=visible?'visible':'hidden';b.copy.inert=!visible;
+    b.copy.setAttribute('aria-hidden',String(!visible));
+  }
+  currentChapter=selected?.name??currentChapter;
+  sceneOpacity=opacity;mount.style.opacity=opacity.toFixed(4);
+  active=opacity>.001;
+  document.body.dataset.studioActive=String(active);
 }
 function recordOriginals(){
   originalMeshes=[];const mats=new Set();
@@ -121,10 +187,13 @@ function createStudio(){
   reflection=new Reflector(keepGeometry(new THREE.PlaneGeometry(36,36)),{textureWidth:1024,textureHeight:512,color:0x303238,multisample:0,clipBias:.003});
   reflection.rotation.x=-Math.PI/2;reflection.position.y=-.025;
   reflection.material.transparent=true;reflection.material.depthWrite=false;
+  reflectionOpacity={value:.32};reflection.material.uniforms.noirReflection=reflectionOpacity;
   const shader=reflection.material;
   shader.fragmentShader=shader.fragmentShader.replace('vec4 base = texture2DProj( tDiffuse, vUv );',`vec2 uv=vUv.xy/vUv.w;vec2 px=vec2(2.0/1024.0,2.0/512.0);vec4 base=texture2D(tDiffuse,uv)*.4; base+=texture2D(tDiffuse,uv+px)*.15; base+=texture2D(tDiffuse,uv-px)*.15;base+=texture2D(tDiffuse,uv+vec2(px.x,-px.y))*.15;base+=texture2D(tDiffuse,uv+vec2(-px.x,px.y))*.15;`)
-    .replace('vec4( blendOverlay( base.rgb, color ), 1.0 )','vec4( blendOverlay( base.rgb, color ), 0.45 )');
-  reflectionPass=reflection.onBeforeRender;reflection.onBeforeRender=(...args)=>{if(frameNumber%3===0||metrics.frames<3||!motionEnabled)reflectionPass.apply(reflection,args);};scene.add(reflection);
+    .replace('uniform vec3 color;','uniform vec3 color;\nuniform float noirReflection;')
+    .replace('vec4( blendOverlay( base.rgb, color ), 1.0 )','vec4( blendOverlay( base.rgb, color ), noirReflection )');
+  // Demand rendering stops work when still. Moving reflections use the current camera.
+  reflectionPass=reflection.onBeforeRender;scene.add(reflection);
   const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const ctx=canvas.getContext('2d');const gradient=ctx.createRadialGradient(64,64,8,64,64,64);gradient.addColorStop(0,'rgba(0,0,0,.9)');gradient.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=gradient;ctx.fillRect(0,0,128,128);
   const contact=new THREE.Mesh(keepGeometry(new THREE.PlaneGeometry(3.3,6.2)),keepMaterial(new THREE.MeshBasicMaterial({map:keepTexture(new THREE.CanvasTexture(canvas)),transparent:true,depthWrite:false})));contact.rotation.x=-Math.PI/2;contact.position.y=-.012;scene.add(contact);
 }
@@ -189,49 +258,52 @@ function updateEffects(state,time){
   filmLayers.forEach(o=>{o.visible=state.film>.005;o.material.opacity=state.film*.13;});
   if(water){water.visible=state.water>.01;if(water.visible){waterMaterial.opacity=state.water;for(let i=0;i<waterSeeds.length;i++){const s=waterSeeds[i];dummy.position.lerpVectors(s.point,s.endPoint,state.water).addScaledVector(s.normal,s.size*.4);dummy.quaternion.setFromUnitVectors(up,s.normal);dummy.scale.set(s.size,s.size*.63,s.size);dummy.updateMatrix();water.setMatrixAt(i,dummy.matrix);}water.instanceMatrix.needsUpdate=true;}}
 }
-function syncMotion(){motionButton.setAttribute('aria-pressed',String(!motionEnabled));motionButton.querySelector('span').textContent=motionEnabled?'Пауза':'Включить движение';}
 function invalidate(){if(!frame&&!disposed&&document.visibilityState!=='hidden')frame=requestAnimationFrame(render);}
 function resizeRenderer(){if(!renderer)return;renderer.setPixelRatio(Math.min(devicePixelRatio,dprCap));renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
-function updateVisibility(){
-  // Only render when a story chapter reaches the visible middle of the scene.
-  // A few pixels above an opaque booking/content block do not need a GPU loop.
-  active=chapterBounds.some(b=>b.top<scrollY+h*.78&&b.top+b.height>scrollY+h*.22);
-  document.body.dataset.studioActive=String(active);
-  const mid=scrollY+h*.5;let selected=chapterBounds[0];for(const b of chapterBounds){if(mid>=b.top)selected=b;}
-  if(selected.name!==currentChapter){currentChapter=selected.name;caption.textContent=labels[currentChapter];verifyOriginals();}
-}
 function render(timestamp){
   frame=0;if(disposed||document.visibilityState==='hidden')return;
-  updateVisibility();if(!renderer||!modelReady||!active){previousTime=timestamp;return;}
-  // A high-refresh monitor must not spend GPU time on hundreds of idle frames.
-  if(lastRender&&timestamp-lastRender<15.5){invalidate();return;}
-  const dt=Math.min((timestamp-previousTime)/1000||.016,.04);previousTime=timestamp;
-  const desired=timelineAt(scrollY);let moving=false;
-  for(const p of props){const before=motionState[p];motionState[p]=motionEnabled?THREE.MathUtils.damp(before,desired[p],7,dt):desired[p];moving ||= Math.abs(motionState[p]-desired[p])>.00015;}
-  const t=timestamp/1000;
-  const entrance=motionEnabled&&currentChapter==='hero'?Math.min(1,(performance.now()-entranceTime)/1400):1;
-  const idle=motionEnabled&&['hero','result','finale'].includes(currentChapter);
-  const drift=idle?Math.sin(t*.27)*.035:0;
-  rig.rotation.y=motionState.yaw+drift;rig.position.y=-(1-smooth(entrance))*.09;
-  cameraPosition.set(motionState.x+(idle?Math.sin(t*.18)*.035:0),motionState.y,motionState.z);
+  // Carry the deadline remainder across frames: a 90/144 Hz display still
+  // averages 60 updates, rather than permanently dropping to 45/48 FPS.
+  if(timestamp+.5<nextFrameAt){invalidate();return;}
+  const cadence=1000/60;
+  nextFrameAt=timestamp-nextFrameAt>100?timestamp+cadence:nextFrameAt+cadence*Math.max(1,Math.floor((timestamp-nextFrameAt)/cadence)+1);
+  const dt=Math.min((timestamp-previousTime)/1000||.016,.05);previousTime=timestamp;
+  // One filtered position drives the DOM, camera, vehicle, light and treatments.
+  storyPosition=motionEnabled?THREE.MathUtils.damp(storyPosition,scrollY,12,dt):scrollY;
+  const moving=Math.abs(storyPosition-scrollY)>.08;
+  if(!moving)storyPosition=scrollY;
+  const entrance=motionEnabled&&scrollY<h*.25?Math.min(1,(performance.now()-entranceTime)/1100):1;
+  updatePresentation(storyPosition,entrance);
+  editorial.update();
+  if(!renderer||!modelReady||!active){if(moving)invalidate();return;}
+  Object.assign(motionState,timelineAt(storyPosition));
+  // Introductory motion finishes. Subsequent motion belongs to the visitor's scroll.
+  rig.rotation.y=motionState.yaw;rig.position.y=-(1-smooth(entrance))*.04;
+  cameraPosition.set(motionState.x+(1-smooth(entrance))*.14,motionState.y,motionState.z);
   camera.position.copy(cameraPosition);look.set(motionState.tx,motionState.ty,motionState.tz);camera.lookAt(look);
   camera.fov=motionState.fov;camera.setViewOffset(w,h,-w*motionState.offset,0,w,h);camera.updateProjectionMatrix();
   scene.environmentIntensity=1.25*motionState.light;
   scene.getObjectByName('studio-key').intensity=3.2*motionState.light;
   scene.getObjectByName('studio-rim').intensity=2.7*motionState.light;
   renderer.toneMappingExposure=(.1+.9*smooth(entrance))*1.2;
-  updateEffects(motionState,t);reflection.visible=motionState.reflect>.55;
-  renderer.info.reset();frameNumber++;const started=performance.now();renderer.render(scene,camera);const cpuMs=performance.now()-started;
-  metrics.frames++;if(lastRender&&timestamp-lastRender<150&&timestamp-lastRender>0){const interval=timestamp-lastRender;if(debug){metrics.intervals.push(interval);if(metrics.intervals.length>240)metrics.intervals.shift();}slowFrames=interval>30?slowFrames+1:Math.max(0,slowFrames-1);}
+  updateEffects(motionState,timestamp/1000);
+  reflectionOpacity.value=.32*smooth(motionState.reflect);reflection.visible=reflectionOpacity.value>.001;
+  renderer.info.reset();frameNumber++;
+  const started=performance.now();renderer.render(scene,camera);const cpuMs=performance.now()-started;
+  metrics.frames++;
+  if(lastRender&&timestamp-lastRender<150&&timestamp-lastRender>0){
+    const interval=timestamp-lastRender;
+    if(debug){metrics.intervals.push(interval);if(metrics.intervals.length>240)metrics.intervals.shift();}
+    slowFrames=interval>32?slowFrames+1:Math.max(0,slowFrames-1);
+  }
   lastRender=timestamp;
   if(slowFrames>45&&dprCap>1){dprCap=1;metrics.adaptiveReductions++;resizeRenderer();}
-  if(slowFrames>80&&reflection){reflectionPass=()=>{};metrics.reflectionUpdatesDisabled=true;}
-  if(diagnostic)diagnostic.textContent=JSON.stringify({...metrics,chapter:currentChapter,scrollY,pose:{...motionState},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,textures:renderer.info.memory.textures,geometries:renderer.info.memory.geometries,frameCpuMs:cpuMs,pixelRatio:renderer.getPixelRatio(),active,modelReady,motionEnabled});
-  if(moving||idle||entrance<1)invalidate();
+  if(diagnostic)diagnostic.textContent=JSON.stringify({...metrics,chapter:currentChapter,scrollY,storyPosition,sceneOpacity,pose:{...motionState},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,textures:renderer.info.memory.textures,geometries:renderer.info.memory.geometries,frameCpuMs:cpuMs,pixelRatio:renderer.getPixelRatio(),active,modelReady,motionEnabled});
+  if(moving||entrance<1)invalidate();
 }
 function fail(error){console.error('NOIR cinematic:',error);document.body.dataset.scene='error';status.textContent='Не удалось открыть 3D-сцену. Услуги и запись доступны.';document.getElementById('scene-retry').hidden=false;}
 async function init(){
-  document.body.dataset.scene='loading';syncMotion();cacheTimeline();
+  document.body.dataset.scene='loading';prepareHeadings();cacheTimeline();
   try{
     renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.info.autoReset=false;
     renderer.transmissionResolutionScale=.5;
@@ -259,25 +331,26 @@ async function init(){
     renderer.render(scene,camera);
     camera.position.set(initial.x,initial.y,initial.z);camera.lookAt(initial.tx,initial.ty,initial.tz);rig.rotation.y=initial.yaw;
     camera.fov=initial.fov;camera.setViewOffset(w,h,-w*initial.offset,0,w,h);camera.updateProjectionMatrix();
-    updateEffects(initial,0);reflection.visible=initial.reflect>.55;
+    updateEffects(initial,0);reflectionOpacity.value=.32*smooth(initial.reflect);reflection.visible=reflectionOpacity.value>.001;
     renderer.toneMappingExposure=motionEnabled&&currentChapter==='hero'?.12:1.2;
     renderer.render(scene,camera);
     modelReady=true;entranceTime=performance.now();metrics.loadReadyMs=Math.round(entranceTime-metrics.loadStart);metrics.originalMeshCount=originalMeshes.length;metrics.originalMaterialCount=originalMaterials.length;
-    document.body.dataset.scene='ready';verifyOriginals();cacheTimeline();invalidate();
+    document.body.dataset.scene='ready';document.body.classList.add('story-choreography');verifyOriginals();cacheTimeline();invalidate();
   }catch(error){fail(error);}
 }
 function dispose(){
   if(disposed)return;disposed=true;cancelAnimationFrame(frame);
+  editorial.dispose();layoutObserver.disconnect();
   const geometries=new Set(ownedGeometries),materials=new Set(ownedMaterials),textures=new Set(ownedTextures);
   originalMeshes.forEach(({geometry})=>geometries.add(geometry));originalMaterials.forEach(m=>{materials.add(m);Object.values(m).forEach(v=>{if(v?.isTexture)textures.add(v);});});
   geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());reflection?.getRenderTarget().dispose();reflection?.material.dispose();environment?.dispose();renderer?.dispose();
 }
 addEventListener('scroll',invalidate,{passive:true});addEventListener('resize',cacheTimeline,{passive:true});
 document.fonts?.ready.then(cacheTimeline);
+const layoutObserver=new ResizeObserver(()=>cacheTimeline());layoutObserver.observe(document.querySelector('main'));
+
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){cancelAnimationFrame(frame);frame=0;}else{previousTime=0;invalidate();}});
 addEventListener('pagehide',e=>{if(!e.persisted)dispose();});addEventListener('pageshow',()=>{if(!disposed){cacheTimeline();invalidate();}});
-motionButton.addEventListener('click',()=>{userOverride=true;motionEnabled=!motionEnabled;syncMotion();invalidate();});
-reduceMotion.addEventListener('change',()=>{if(!userOverride){motionEnabled=!reduceMotion.matches;syncMotion();invalidate();}});
-document.getElementById('studio-reset').addEventListener('click',()=>document.getElementById('experience').scrollIntoView({behavior:motionEnabled?'smooth':'auto'}));
+reduceMotion.addEventListener('change',()=>{motionEnabled=motionAllowed();storyPosition=scrollY;invalidate();});
 document.getElementById('scene-retry').addEventListener('click',()=>location.reload());
 init();
