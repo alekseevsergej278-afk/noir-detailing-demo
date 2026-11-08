@@ -209,8 +209,26 @@ function createLayers(){
   hood=body.find(n=>n.name.includes('__hood'));
   const scratchCanvas=document.createElement('canvas');scratchCanvas.width=scratchCanvas.height=2048;
   const scratchContext=scratchCanvas.getContext('2d');scratchContext.fillStyle='#000';scratchContext.fillRect(0,0,2048,2048);
-  for(let i=0;i<900;i++){const seed=n=>Math.abs(Math.sin(n*127.1+43.7)*43758.5453)%1;const x=seed(i)*2048,y=seed(i+900)*2048,r=40+seed(i+1800)*190;scratchContext.strokeStyle=`rgba(255,255,255,${.12+seed(i+2700)*.25})`;scratchContext.lineWidth=.5+seed(i+3600)*.6;scratchContext.beginPath();scratchContext.arc(x,y,r,seed(i+4500)*6.28,seed(i+4500)*6.28+.08+seed(i+5400)*.25);scratchContext.stroke();}
+  const seed=n=>Math.abs(Math.sin(n*127.1+43.7)*43758.5453)%1;
+  scratchContext.lineCap='round';
+  // Short, irregular wash marks, with a few longer hairlines. They remain
+  // visible after mip filtering without looking like deep gouges in the paint.
+  for(let i=0;i<90;i++){
+    const x=seed(i)*2048,y=seed(i+1100)*2048,r=35+seed(i+2200)*145;
+    const angle=seed(i+3300)*Math.PI*2;
+    scratchContext.strokeStyle=`rgba(255,255,255,${.36+seed(i+4400)*.44})`;
+    scratchContext.lineWidth=1.15+seed(i+5500)*.95;
+    scratchContext.beginPath();
+    scratchContext.arc(x,y,r,angle,angle+.13+seed(i+6600)*.32);scratchContext.stroke();
+  }
+  for(let i=0;i<6;i++){
+    const x=seed(i+7700)*2048,y=seed(i+8800)*2048;
+    scratchContext.strokeStyle=`rgba(255,255,255,${.3+seed(i+9900)*.32})`;
+    scratchContext.lineWidth=1.4+seed(i+10100)*.7;scratchContext.beginPath();
+    scratchContext.moveTo(x,y);scratchContext.quadraticCurveTo(x+12,y+55,x+20+seed(i+11100)*30,y+65+seed(i+12100)*55);scratchContext.stroke();
+  }
   const scratchTexture=keepTexture(new THREE.CanvasTexture(scratchCanvas));
+  scratchTexture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
   const dirty=keepMaterial(new THREE.MeshPhysicalMaterial({color:paintColor.clone().multiplyScalar(.92),metalness:.6,roughness:.5,clearcoat:.04,transparent:true,opacity:.72,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));
   dirty.onBeforeCompile=shader=>{
     shader.uniforms.uSweep=uniforms.sweep;
@@ -221,10 +239,11 @@ function createLayers(){
       float polished=smoothstep(mix(2.7,-3.0,uSweep)-.2,mix(2.7,-3.0,uSweep)+.2,vStudioPosition.z);
       diffuseColor.a*=1.0-polished;
       float marks=texture2D(uScratches,vStudioPosition.xz*vec2(.5,.5)+vec2(.5,-.25)).r;
-      diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.4,.43,.4),marks*.22);`);
-    shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_maps>','#include <normal_fragment_maps>\nnormal=normalize(normal+vec3(marks*.025,-marks*.012,0.0));');
+      diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.4,.45,.5),marks*.48);`);
+    shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=mix(roughnessFactor,.78,marks*.7);');
+    shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_maps>','#include <normal_fragment_maps>\nnormal=normalize(normal+vec3(marks*.07,-marks*.035,0.0));');
   };
-  dirty.customProgramCacheKey=()=> 'noir-dirt-surface-1';
+  dirty.customProgramCacheKey=()=> 'noir-dirt-surface-2';
   const gloss=keepMaterial(new THREE.MeshPhysicalMaterial({color:paintColor,metalness:.65,roughness:.12,clearcoat:1,clearcoatRoughness:.045,transparent:true,opacity:.22,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3}));
   const ceramic=keepMaterial(new THREE.MeshPhysicalMaterial({color:'#dce8eb',metalness:.2,roughness:.07,clearcoat:1,clearcoatRoughness:.025,transparent:true,opacity:.075,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-4}));
   const wave=keepMaterial(new THREE.ShaderMaterial({transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-5,polygonOffsetUnits:-5,uniforms:{uWave:uniforms.wave},vertexShader:'varying vec3 vP;varying vec3 vN;void main(){vP=position;vN=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position+normal*.002,1.0);}',fragmentShader:'varying vec3 vP;varying vec3 vN;uniform float uWave;void main(){float band=exp(-pow((vP.z-mix(2.8,-3.0,uWave))*10.0,2.0));float edge=.25+pow(1.0-abs(vN.z),2.0);gl_FragColor=vec4(.92,.9,.8,band*edge*.3);}'}));
@@ -253,7 +272,7 @@ function createWater(){
 const dummy=new THREE.Object3D(),up=new THREE.Vector3(0,1,0);
 function updateEffects(state,time){
   uniforms.sweep.value=state.polish;uniforms.wave.value=state.ceramic;uniforms.filmLay.value=1-state.lift;
-  dirtyLayers.forEach(o=>{o.visible=state.dirty>.005&&state.polish<.999;});
+  dirtyLayers.forEach(o=>{o.visible=state.dirty>.005&&state.polish<.999;o.material.opacity=.82*state.dirty;});
   glossLayers.forEach(o=>{o.visible=state.polish>.005;o.material.opacity=.22*state.polish;});
   ceramicLayers.forEach(o=>{o.visible=state.ceramic>.005;o.material.opacity=.075*state.ceramic;});
   waveLayers.forEach(o=>o.visible=currentChapter==='ceramic'&&state.ceramic>.02&&state.ceramic<.98);
