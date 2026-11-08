@@ -34,8 +34,6 @@ main{position:relative;z-index:1}
 .story-cta svg{transition:transform .3s}.story-cta:hover svg{transform:translate(2px,-2px)}
 .story-text-link{display:inline-block;font-size:11px;line-height:1.7;color:#c4a77a;padding:0 0 6px;border-bottom:1px solid #c4a77a70;transition:color .25s,border-color .25s}
 .story-text-link:hover{color:#f3f1ed;border-color:#f3f1ed}
-.story-scroll{position:absolute;left:5.2vw;bottom:11svh;display:flex;gap:14px;align-items:center;color:#a29e97;font-size:11px;letter-spacing:.04em}
-.scroll-line{height:34px;width:1px;display:block;background:linear-gradient(#c4a77a,#c4a77a20)}
 .scene-disclaimer{position:absolute;left:5.2vw;bottom:10svh;max-width:420px;font-size:10px;line-height:1.7;color:#87847e;margin:0}
 .story-copy>.scene-disclaimer{position:static;max-width:39ch;font-size:10px;line-height:1.7;color:#969087;margin:22px 0 0}
 .legacy-content{position:relative;z-index:3;background:#080808}
