@@ -90,19 +90,38 @@ const observer=new IntersectionObserver(entries=>{
 // Stagger only rows entering together. Later rows respond immediately as they
 // enter the viewport, rather than waiting behind an offscreen animation queue.
 const serviceRows=[...document.querySelectorAll('.service-row')];
+const servicePlayed=new Set(),serviceAnimations=new Map();
 const serviceObserver=new IntersectionObserver(entries=>{
-  const incoming=entries.filter(entry=>entry.isIntersecting)
+  const incoming=entries.filter(entry=>entry.isIntersecting&&!servicePlayed.has(entry.target))
     .sort((a,b)=>serviceRows.indexOf(a.target)-serviceRows.indexOf(b.target));
   incoming.forEach((entry,index)=>{
-    const row=entry.target;serviceObserver.unobserve(row);
+    const row=entry.target,box=row.getBoundingClientRect();
+    if(box.bottom<=0||box.top>=innerHeight)return;
+    servicePlayed.add(row);
     row.dataset.serviceRevealed='true';
+    row.dataset.serviceRevealCount=String(Number(row.dataset.serviceRevealCount||0)+1);
     const reduced=isReduced();
-    play(row,[
+    const animation=play(row,[
       {opacity:0,transform:reduced?'none':'translateY(14px)'},
       {opacity:1,transform:'none'}
-    ],{duration:reduced?180:650,delay:reduced?0:index*140,easing:ease,fill:'backwards'});
+    ],{duration:650,delay:index*140,easing:ease,fill:'backwards'});
+    serviceAnimations.set(row,animation);
+    const finished=()=>{if(serviceAnimations.get(row)===animation)serviceAnimations.delete(row);};
+    animation.finished.then(finished,finished);
   });
 },{threshold:.12,rootMargin:'0px 0px -4% 0px'});
+let servicesVisited=false;
+const serviceSectionObserver=new IntersectionObserver(entries=>{
+  entries.forEach(entry=>{
+    if(entry.isIntersecting){servicesVisited=true;return;}
+    if(!servicesVisited)return;
+    // Rearm only after the entire section has left the viewport. Scrolling
+    // between rows within the section must not restart already readable text.
+    servicesVisited=false;serviceAnimations.forEach(animation=>animation.cancel());
+    serviceAnimations.clear();servicePlayed.clear();
+    serviceRows.forEach(row=>row.dataset.serviceRevealed='false');
+  });
+},{rootMargin:'60px 0px 60px 0px',threshold:0});
 const resizeObserver=new ResizeObserver(()=>{
   if(resizeFrame||disposed)return;
   resizeFrame=requestAnimationFrame(()=>{
@@ -143,10 +162,11 @@ async function init(){
   });
   groups.forEach(group=>observer.observe(group));
   serviceRows.forEach(row=>serviceObserver.observe(row));
+  serviceSectionObserver.observe(document.getElementById('services'));
   preference.addEventListener('change',onPreferenceChange);
 }
 addEventListener('pagehide',event=>{
-  if(event.persisted)return;disposed=true;observer.disconnect();serviceObserver.disconnect();resizeObserver.disconnect();heroObserver.disconnect();
+  if(event.persisted)return;disposed=true;observer.disconnect();serviceObserver.disconnect();serviceSectionObserver.disconnect();resizeObserver.disconnect();heroObserver.disconnect();
   cancelAnimationFrame(resizeFrame);animations.forEach(animation=>animation.cancel());
   preference.removeEventListener('change',onPreferenceChange);
   removeEventListener('scroll',onScroll);
